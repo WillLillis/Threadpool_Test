@@ -1,5 +1,6 @@
 #include "Thread_Pool.h"
 #include <cstdio>
+#include <iostream>
 
 void test_func(void* num)
 {
@@ -22,6 +23,10 @@ int main()
 
 	test_pool.add_job(job1);
 	test_pool.add_job(job2);
+
+	std::string empty;
+
+	std::cin >> empty;
 
 	test_pool.thread_pool_stop(true);
 

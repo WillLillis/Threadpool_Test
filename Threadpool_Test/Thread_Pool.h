@@ -1,5 +1,4 @@
 #pragma once
-
 #include <thread>
 #include <queue>
 #include <mutex>
@@ -10,6 +9,13 @@
 #include <unistd.h>
 #endif
 
+// TODO:
+	// transition over to using std::condition_variables to manage idle threads/ notify when a job is available
+	// transition over to using templates so we can avoid using void pointers to pass in function arguments
+		// get rid of thread_pool_job_t
+	// replace bools and mutexes with std::atomic's
+
+
 class thread_pool {
 public:
 	typedef struct thread_pool_job_t {
@@ -18,13 +24,12 @@ public:
 	}thread_pool_job_t;
 	const uint_fast8_t max_threads;
 
-	thread_pool() : max_threads(std::thread::hardware_concurrency())
+	thread_pool() : max_threads(1)
 	{
 		pool_cont = true;
 	}
 
-	thread_pool(uint_fast8_t num_threads) : max_threads(num_threads <= std::thread::hardware_concurrency()
-		? num_threads : (uint_fast8_t)std::thread::hardware_concurrency())
+	thread_pool(uint_fast8_t num_threads) : max_threads(num_threads)
 	{
 		pool_cont = true;
 	}
@@ -32,7 +37,6 @@ public:
 	void thread_pool_start()
 	{
 		for (uint32_t i = 0; i < max_threads; i++) {
-			//worker_threads.push_back(std::thread(&(thread_pool::thread_start), this));
 			worker_threads.push_back(std::thread(&thread_pool::thread_start, this));
 		}
 	}
@@ -83,16 +87,16 @@ private:
 	{
 		while (pool_cont)
 		{
-			Sleep(0); // yield to other processes
 			if (!(job_queue_lock.try_lock())) { // if we don't acquire the job notification lock
 				continue;
 			}
 			if (job_queue.size() > 0) { // if there's a job available to start
-				job_queue_lock.lock();
 				thread_pool_job_t next_job = job_queue.front(); // get the next job
 				job_queue.pop();
 				job_queue_lock.unlock();
 				next_job.func(next_job.args); // call the function from the job
+			} else {
+				job_queue_lock.unlock();
 			}
 		}
 	}
