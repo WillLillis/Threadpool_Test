@@ -1,5 +1,4 @@
-#if !defined(_THREAD_POOL_H_)
-#define _THREAD_POOL_H_
+#pragma once
 
 #include <thread>
 #include <queue>
@@ -21,21 +20,20 @@ public:
 
 	thread_pool() : max_threads(std::thread::hardware_concurrency())
 	{
-		job_avail = false;
 		pool_cont = true;
 	}
 
 	thread_pool(uint_fast8_t num_threads) : max_threads(num_threads <= std::thread::hardware_concurrency()
 		? num_threads : (uint_fast8_t)std::thread::hardware_concurrency())
 	{
-		job_avail = false;
 		pool_cont = true;
 	}
 
 	void thread_pool_start()
 	{
-		for (uint_fast8_t i = 0; i < max_threads; i++) {
-			worker_threads.push_back(std::thread(&(thread_pool::thread_start), this));
+		for (uint32_t i = 0; i < max_threads; i++) {
+			//worker_threads.push_back(std::thread(&(thread_pool::thread_start), this));
+			worker_threads.push_back(std::thread(&thread_pool::thread_start, this));
 		}
 	}
 
@@ -57,7 +55,7 @@ public:
 		}
 
 		pool_cont = false;
-		for (uint_fast8_t i = 0; i < max_threads; i++) {
+		for (uint32_t i = 0; i < max_threads; i++) {
 			if (worker_threads[i].joinable()) {
 				worker_threads[i].join();
 			}
@@ -70,7 +68,6 @@ public:
 		job_queue_lock.lock();
 		job_queue.push(job);
 		size_t place = job_queue.size() - 1;
-		job_avail = true;
 		job_queue_lock.unlock();
 
 		return place;
@@ -80,34 +77,24 @@ private:
 	std::vector<std::thread> worker_threads;
 	std::queue<thread_pool_job_t> job_queue;
 	std::mutex job_queue_lock;
-	bool job_avail;
-	std::mutex job_avail_lock;
 	bool pool_cont;
 
-	static void thread_start(thread_pool* ref)
+	void thread_start()
 	{
-		while (ref->pool_cont)
+		while (pool_cont)
 		{
 			Sleep(0); // yield to other processes
-			if (!(ref->job_avail_lock.try_lock())) { // if we don't acquire the job notification lock
+			if (!(job_queue_lock.try_lock())) { // if we don't acquire the job notification lock
 				continue;
 			}
-			if (ref->job_avail) { // if there's a job available to start
-				ref->job_queue_lock.lock();
-				thread_pool_job_t next_job = ref->job_queue.front(); // get the next job
-				ref->job_queue.pop();
-				ref->job_avail = ref->job_queue.size() > 0 ? true : false; // update the job ready flag
-				ref->job_avail_lock.unlock();
-				ref->job_queue_lock.unlock();
+			if (job_queue.size() > 0) { // if there's a job available to start
+				job_queue_lock.lock();
+				thread_pool_job_t next_job = job_queue.front(); // get the next job
+				job_queue.pop();
+				job_queue_lock.unlock();
 				next_job.func(next_job.args); // call the function from the job
-			}
-			else { // if there's no jobs
-				ref->job_avail_lock.unlock();
 			}
 		}
 	}
 
 };
-
-
-#endif // _THREAD_POOL_H_ include guard
