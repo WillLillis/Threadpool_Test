@@ -2,31 +2,26 @@
 #include <cstdio>
 #include <iostream>
 
+HANDLE window_handle;
+
 void test_func(void* num)
 {
 	for (int i = 0; i < 100000; i++) {
 		printf("Your number is: %d", *(int*)num);
+		SetConsoleTextAttribute(window_handle, (WORD) * (int*)num);
 	}
-	
-	fflush(stdin);
 }
 
 
 int main()
 {
 	srand(time(NULL));
+	window_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+	WORD color_attr;
+
 	thread_pool test_pool(12);
 
 	test_pool.thread_pool_start();
-
-	/*int x = 1;
-	thread_pool::thread_pool_job_t job1 = { .func = test_func, .args = &x };
-
-	int y = 5;
-	thread_pool::thread_pool_job_t job2 = { .func = test_func, .args = &y };
-
-	test_pool.add_job(job1);
-	test_pool.add_job(job2);*/
 
 	thread_pool::thread_pool_job_t next_job;
 	next_job.func = test_func;
