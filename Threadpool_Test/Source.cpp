@@ -11,7 +11,7 @@ void test_func(void* num)
 
 int main()
 {
-	thread_pool test_pool;
+	thread_pool test_pool(12);
 
 	test_pool.thread_pool_start();
 
@@ -23,6 +23,7 @@ int main()
 
 	test_pool.add_job(job1);
 	test_pool.add_job(job2);
+
 
 	std::string empty;
 
