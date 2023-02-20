@@ -4,6 +4,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #if defined(_WIN32)
 #include <windows.h>
 #else
@@ -42,7 +43,7 @@ public:
 		}
 	}
 
-	void add_thread(uint32_t num)
+	void add_threads(uint32_t num)
 	{
 		for (uint32_t i = 0; i < num; i++) {
 			worker_threads.push_back(std::thread(&thread_pool::thread_start, this));
@@ -81,7 +82,8 @@ public:
 		}
 	}
 
-	// add a job to the queue
+	//template <typename Func, typename... Args>
+	//size_t add_job(Func&& func, Args&&...args)
 	size_t add_job(thread_pool_job_t job)
 	{
 		size_t place;
@@ -90,6 +92,7 @@ public:
 			// lock job_avail_lock mutex, add job to the job queue 
 			std::scoped_lock<std::mutex> lock(job_avail_lock);
 			job_queue.push(job);
+			//job_queue.push(std::function(func, ...args))
 			place = job_queue.size() - 1;
 
 		}
@@ -106,10 +109,12 @@ public:
 private:
 	std::vector<std::thread> worker_threads;
 	std::queue<thread_pool_job_t> job_queue;
+	//using thread_pool_job_t = std::function<void()>;
+	//std::queue<thread_pool_job_t> job_queue;
 	std::mutex job_queue_lock;
-	std::condition_variable job_avail_notif;
-	std::mutex job_avail_lock;
-	std::atomic<bool> pool_cont;
+	std::condition_variable job_avail_notif; // used to notify when a new job is added, OR when it's time to shut things down 
+	std::mutex job_avail_lock; // mutex used in concert with condition variable job_avail_notif
+	std::atomic<bool> pool_cont; // flag to tell the pool to continue operating
 
 	void thread_start()
 	{
@@ -130,6 +135,7 @@ private:
 			}
 
 			next_job.func(next_job.args);
+			//next_job();
 
 			/*if (!(job_queue_lock.try_lock())) { // if we don't acquire the job notification lock
 				continue;
